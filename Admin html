@@ -1,0 +1,325 @@
+
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ABL POINT 2 — Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: auto;
+      padding: 18px;
+      background: #f4f7f6;
+      color: #17211c;
+    }
+    h2 { color: #087443; }
+    input, button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 12px;
+      margin: 6px 0;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    input { border: 1px solid #bbb; background: white; }
+    button {
+      border: 0;
+      background: #087443;
+      color: white;
+      cursor: pointer;
+    }
+    .secondary { background: #45545b; }
+    .danger { background: #b42318; }
+    .panel, .contact {
+      background: white;
+      padding: 16px;
+      margin: 12px 0;
+      border-radius: 12px;
+      box-shadow: 0 1px 5px #0001;
+    }
+    #app { display: none; }
+    #status { white-space: pre-wrap; }
+    .small { font-size: 13px; color: #555; }
+  </style>
+</head>
+<body>
+  <h2>ABL POINT 2 — Admin Panel</h2>
+  <p id="status">লোড হচ্ছে...</p>
+
+  <section id="login" class="panel">
+    <h3>Admin Login</h3>
+    <form id="loginForm">
+      <input id="email" type="email"
+        placeholder="আপনার অ্যাডমিন ইমেইল" required>
+      <input id="password" type="password"
+        placeholder="পাসওয়ার্ড" required>
+      <button type="submit">লগইন করুন</button>
+    </form>
+    <p class="small">শুধু অনুমোদিত অ্যাডমিন অ্যাকাউন্ট ব্যবহার করুন।</p>
+  </section>
+
+  <section id="app">
+    <div class="panel">
+      <p>লগইন করা অ্যাডমিন: <strong id="adminEmail"></strong></p>
+      <button id="logout" class="secondary">লগআউট</button>
+    </div>
+
+    <div class="panel">
+      <h3 id="formTitle">নতুন TSM যোগ করুন</h3>
+      <form id="tsmForm">
+        <input id="tsmName" placeholder="TSM-এর নাম" required>
+        <input id="tsmPhone" type="tel"
+          placeholder="মোবাইল নম্বর" required>
+        <input id="tsmArea" placeholder="এরিয়া" required>
+        <input id="tsmDistrict" placeholder="জেলা (ঐচ্ছিক)">
+        <button type="submit" id="saveButton">নম্বর সংরক্ষণ</button>
+        <button type="button" id="cancelEdit"
+          class="secondary" hidden>সম্পাদনা বাতিল</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h3>TSM তালিকা পরিচালনা</h3>
+      <input id="search" placeholder="নাম, নম্বর, এরিয়া বা জেলা দিয়ে খুঁজুন">
+      <div id="contacts"></div>
+    </div>
+  </section>
+
+<script>
+  // আপনার বর্তমান index.html-এ ব্যবহৃত একই Project URL
+  // এবং Publishable key এখানে বসান।
+  const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
+  const SUPABASE_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY";
+
+  const db = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+  );
+
+  const $ = id => document.getElementById(id);
+  let editingId = null;
+  let contacts = [];
+
+  function status(message) {
+    $("status").textContent = message;
+  }
+
+  function showLogin() {
+    $("login").style.display = "block";
+    $("app").style.display = "none";
+  }
+
+  function showApp(user) {
+    $("login").style.display = "none";
+    $("app").style.display = "block";
+    $("adminEmail").textContent = user.email || "";
+  }
+
+  async function checkAdmin() {
+    const { data: { user }, error } = await db.auth.getUser();
+
+    if (error || !user) {
+      showLogin();
+      status("আপনার অ্যাডমিন অ্যাকাউন্ট দিয়ে লগইন করুন।");
+      return false;
+    }
+
+    const { data: profile, error: profileError } = await db
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || profile?.role !== "admin") {
+      await db.auth.signOut();
+      showLogin();
+      status("এই অ্যাকাউন্টের Admin অনুমতি নেই।");
+      return false;
+    }
+
+    showApp(user);
+    await loadContacts();
+    return true;
+  }
+
+  $("loginForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    status("লগইন যাচাই হচ্ছে...");
+
+    const { error } = await db.auth.signInWithPassword({
+      email: $("email").value.trim(),
+      password: $("password").value
+    });
+
+    if (error) {
+      status("লগইন হয়নি: " + error.message);
+      return;
+    }
+
+    $("password").value = "";
+    await checkAdmin();
+  });
+
+  $("logout").addEventListener("click", async () => {
+    await db.auth.signOut();
+    showLogin();
+    status("আপনি লগআউট করেছেন।");
+  });
+
+  async function loadContacts() {
+    status("TSM তালিকা লোড হচ্ছে...");
+
+    const { data, error } = await db
+      .from("tsm_contacts")
+      .select("id,tsm_name,phone,area,district")
+      .order("area");
+
+    if (error) {
+      status("তালিকা লোড হয়নি: " + error.message);
+      return;
+    }
+
+    contacts = data || [];
+    renderContacts();
+    status("TSM তালিকা আপডেট হয়েছে।");
+  }
+
+  function renderContacts() {
+    const query = $("search").value.trim().toLowerCase();
+
+    const filtered = contacts.filter(c =>
+      [c.tsm_name, c.phone, c.area, c.district || ""]
+        .some(value => String(value).toLowerCase().includes(query))
+    );
+
+    $("contacts").replaceChildren();
+
+    if (!filtered.length) {
+      $("contacts").textContent = "কোনো TSM পাওয়া যায়নি।";
+      return;
+    }
+
+    filtered.forEach(c => {
+      const card = document.createElement("div");
+      card.className = "contact";
+
+      const title = document.createElement("strong");
+      title.textContent = c.tsm_name;
+
+      const details = document.createElement("p");
+      details.textContent =
+        "নম্বর: " + c.phone +
+        "\nএরিয়া: " + c.area +
+        "\nজেলা: " + (c.district || "উল্লেখ নেই");
+      details.style.whiteSpace = "pre-line";
+
+      const edit = document.createElement("button");
+      edit.textContent = "সম্পাদনা";
+      edit.addEventListener("click", () => startEdit(c));
+
+      const remove = document.createElement("button");
+      remove.textContent = "মুছে ফেলুন";
+      remove.className = "danger";
+      remove.addEventListener("click", () => deleteContact(c));
+
+      card.append(title, details, edit, remove);
+      $("contacts").append(card);
+    });
+  }
+
+  $("search").addEventListener("input", renderContacts);
+
+  function startEdit(c) {
+    editingId = c.id;
+    $("tsmName").value = c.tsm_name;
+    $("tsmPhone").value = c.phone;
+    $("tsmArea").value = c.area;
+    $("tsmDistrict").value = c.district || "";
+    $("formTitle").textContent = "TSM তথ্য সম্পাদনা";
+    $("saveButton").textContent = "পরিবর্তন সংরক্ষণ";
+    $("cancelEdit").hidden = false;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function resetForm() {
+    editingId = null;
+    $("tsmForm").reset();
+    $("formTitle").textContent = "নতুন TSM যোগ করুন";
+    $("saveButton").textContent = "নম্বর সংরক্ষণ";
+    $("cancelEdit").hidden = true;
+  }
+
+  $("cancelEdit").addEventListener("click", resetForm);
+
+  $("tsmForm").addEventListener("submit", async event => {
+    event.preventDefault();
+
+    // পরিবর্তনের আগে বর্তমান লগইন ও অ্যাডমিন অনুমতি যাচাই
+    if (!(await checkAdmin())) return;
+
+    const record = {
+      tsm_name: $("tsmName").value.trim(),
+      phone: $("tsmPhone").value.trim(),
+      area: $("tsmArea").value.trim(),
+      district: $("tsmDistrict").value.trim() || null
+    };
+
+    if (!record.tsm_name || !record.phone || !record.area) {
+      status("নাম, নম্বর ও এরিয়া পূরণ করুন।");
+      return;
+    }
+
+    status("তথ্য সংরক্ষণ হচ্ছে...");
+
+    let result;
+
+    if (editingId !== null) {
+      result = await db.from("tsm_contacts")
+        .update(record).eq("id", editingId);
+    } else {
+      result = await db.from("tsm_contacts")
+        .insert(record);
+    }
+
+    if (result.error) {
+      status("সংরক্ষণ হয়নি: " + result.error.message);
+      return;
+    }
+
+    resetForm();
+    status("তথ্য সফলভাবে সংরক্ষণ হয়েছে।");
+    await loadContacts();
+  });
+
+  async function deleteContact(c) {
+    if (!confirm(c.tsm_name + " — এই TSM-এর তথ্য মুছে ফেলবেন?")) {
+      return;
+    }
+
+    if (!(await checkAdmin())) return;
+
+    const { error } = await db.from("tsm_contacts")
+      .delete().eq("id", c.id);
+
+    if (error) {
+      status("মুছে ফেলা যায়নি: " + error.message);
+      return;
+    }
+
+    status("TSM-এর তথ্য মুছে ফেলা হয়েছে।");
+    await loadContacts();
+  }
+
+  db.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_OUT" || !session) {
+      showLogin();
+    }
+  });
+
+  checkAdmin();
+</script>
+</body>
+</html>
