@@ -6,82 +6,361 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#087443">
   <title>ABL POINT 2</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
+    * { box-sizing: border-box; }
     body {
-      font-family: Arial, sans-serif;
       margin: 0;
-      background: #f2f6f3;
-      color: #17231c;
+      font-family: Arial, sans-serif;
+      background: #f3f6f4;
+      color: #183329;
     }
     header {
       background: #087443;
       color: white;
-      padding: 22px 16px;
+      padding: 24px 16px;
       text-align: center;
     }
+    header h1 { margin: 0 0 8px; }
+    header p { margin: 0; }
     main {
-      max-width: 600px;
-      margin: 20px auto;
+      max-width: 760px;
+      margin: auto;
       padding: 16px;
     }
-    input, select, button {
-      box-sizing: border-box;
+    .panel, .party {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 8px #0000000c;
+    }
+    input, select, textarea, button {
       width: 100%;
-      padding: 13px;
-      margin: 8px 0;
+      padding: 12px;
+      margin: 6px 0;
+      border: 1px solid #ccd8d0;
       border-radius: 8px;
       font-size: 16px;
     }
-    input, select {
-      border: 1px solid #bbc9bf;
-      background: white;
-    }
     button {
-      border: 0;
       background: #087443;
       color: white;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .actions a {
+      flex: 1;
+      text-align: center;
+      padding: 11px 5px;
+      background: #e5f5eb;
+      color: #075c35;
+      text-decoration: none;
+      border-radius: 8px;
       font-weight: bold;
     }
-    .card {
-      background: white;
-      border-radius: 10px;
-      padding: 16px;
-      margin-top: 14px;
-      box-shadow: 0 2px 8px #0001;
-    }
-    .note { color: #536158; font-size: 14px; }
+    .muted { color: #62736a; font-size: 14px; }
+    .status { margin: 12px 0; font-size: 14px; }
+    .party h3 { margin: 0 0 10px; }
+    label { display: block; margin-top: 8px; font-weight: bold; }
+    footer { text-align: center; padding: 20px; color: #62736a; }
   </style>
 </head>
+
 <body>
   <header>
     <h1>ABL POINT 2</h1>
-    <p>বাংলাদেশের ডেলিভারি পয়েন্ট খুঁজুন</p>
+    <p>পার্টি খুঁজুন সহজেই</p>
   </header>
+
   <main>
-    <div class="card">
-      <h2>পয়েন্ট খুঁজুন</h2>
-      <input id="search" placeholder="পার্টি বা ডিলারের নাম লিখুন">
+    <section class="panel">
+      <h2>পার্টি সার্চ</h2>
+      <input
+        id="search"
+        type="search"
+        placeholder="পার্টির নাম, ফোন, জেলা বা জায়গা লিখুন..."
+      >
       <select id="district">
         <option value="">সব জেলা</option>
-        <option>ঢাকা</option>
-        <option>গাজীপুর</option>
-        <option>চট্টগ্রাম</option>
-        <option>নারায়ণগঞ্জ</option>
-        <option>নেত্রকোনা</option>
       </select>
-      <p class="note">অনলাইন ডেটাবেস যুক্ত হলে অনুমোদিত পয়েন্ট এখানে দেখা যাবে।</p>
-      <div id="results">এখনো ডেটাবেস সংযুক্ত হয়নি।</div>
-    </div>
-    <div class="card">
-      <h2>নতুন পয়েন্ট যোগ করুন</h2>
-      <input id="party" placeholder="পার্টি / ডিলারের নাম">
-      <input id="phone" placeholder="মোবাইল নম্বর" inputmode="tel">
-      <input id="area" placeholder="এলাকা">
-      <input id="newdistrict" placeholder="জেলা">
-      <button onclick="alert('অনলাইন ডেটাবেস সংযুক্ত করার পর পয়েন্ট জমা দেওয়া যাবে।')">
-        পয়েন্ট জমা দিন
-      </button>
-    </div>
+      <p id="status" class="status">ডেটাবেসে সংযোগ হচ্ছে...</p>
+      <div id="results"></div>
+    </section>
+
+    <section class="panel">
+      <h2>নতুন পার্টি যোগ করুন</h2>
+      <p class="muted">
+        তথ্য জমা দিলে অ্যাডমিন অনুমোদনের পর সার্চে দেখা যাবে।
+      </p>
+
+      <form id="partyForm">
+        <label for="partyName">পার্টির নাম *</label>
+        <input id="partyName" required placeholder="পার্টির নাম">
+
+        <label for="phone">ফোন নম্বর</label>
+        <input id="phone" type="tel" placeholder="01XXXXXXXXX">
+
+        <label for="newDistrict">জেলা *</label>
+        <input id="newDistrict" required placeholder="যেমন: ঢাকা">
+
+        <label for="area">এলাকা / জায়গার নাম *</label>
+        <input id="area" required placeholder="যেমন: উত্তরা">
+
+        <label for="address">সম্পূর্ণ ঠিকানা</label>
+        <textarea id="address" rows="2" placeholder="ঠিকানা লিখুন"></textarea>
+
+        <label for="mapUrl">Google Maps লিংক (যদি থাকে)</label>
+        <input id="mapUrl" type="url" placeholder="https://maps.google.com/...">
+
+        <button type="submit">পার্টির তথ্য জমা দিন</button>
+        <p id="formStatus" class="status"></p>
+      </form>
+    </section>
   </main>
+
+  <footer>ABL POINT 2</footer>
+
+  <script>
+    // নিজের Supabase Project URL ও Publishable Key বসান।
+    const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
+    const SUPABASE_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY";
+
+    const search = document.getElementById("search");
+    const district = document.getElementById("district");
+    const results = document.getElementById("results");
+    const status = document.getElementById("status");
+    const partyForm = document.getElementById("partyForm");
+    const formStatus = document.getElementById("formStatus");
+
+    let points = [];
+    let db = null;
+
+    const configured =
+      SUPABASE_URL.startsWith("https://") &&
+      !SUPABASE_URL.includes("https://nwmlqjmczsleczhlzitz.supabase.co/rest/v1/") &&
+      SUPABASE_KEY.length > 20 &&
+      !SUPABASE_KEY.includes("sb_publishable_oneQWm0wU0cak_z65rLSLA_eVMpK_Lg");
+
+    function normalizePhone(value) {
+      let digits = (value || "").replace(/\D/g, "");
+      digits = digits.replace(/^88(?=01)/, "");
+      return digits;
+    }
+
+    function safeText(value) {
+      return value == null ? "" : String(value);
+    }
+
+    function makeLink(url, label) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.textContent = label;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      return a;
+    }
+
+    function render() {
+      const rawTerm = search.value.trim().toLowerCase();
+      const phoneTerm = normalizePhone(search.value);
+      const selectedDistrict = district.value;
+
+      const filtered = points.filter((p) => {
+        const searchable = [
+          p.party_name,
+          p.district,
+          p.area,
+          p.address
+        ].filter(Boolean).join(" ").toLowerCase();
+
+        const textMatch =
+          rawTerm !== "" && searchable.includes(rawTerm);
+
+        const partyPhone = normalizePhone(p.phone);
+        const phoneMatch =
+          phoneTerm.length >= 3 &&
+          partyPhone.includes(phoneTerm);
+
+        const matchesSearch =
+          rawTerm === "" || textMatch || phoneMatch;
+
+        const matchesDistrict =
+          !selectedDistrict || p.district === selectedDistrict;
+
+        return matchesSearch && matchesDistrict;
+      });
+
+      results.replaceChildren();
+
+      if (filtered.length === 0) {
+        results.textContent = "কোনো পার্টি পাওয়া যায়নি।";
+        return;
+      }
+
+      filtered.forEach((p) => {
+        const card = document.createElement("article");
+        card.className = "party";
+
+        const title = document.createElement("h3");
+        title.textContent = safeText(p.party_name);
+        card.appendChild(title);
+
+        const details = [
+          ["ফোন", p.phone],
+          ["জেলা", p.district],
+          ["এলাকা", p.area],
+          ["ঠিকানা", p.address]
+        ];
+
+        details.forEach(([label, value]) => {
+          if (!value) return;
+          const line = document.createElement("p");
+          line.textContent = label + ": " + value;
+          card.appendChild(line);
+        });
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
+
+        if (p.phone) {
+          const phone = String(p.phone).replace(/[^\d+]/g, "");
+          if (/^\+?\d{7,15}$/.test(phone)) {
+            const callLink = document.createElement("a");
+            callLink.href = "tel:" + phone;
+            callLink.textContent = "📞 কল করুন";
+            actions.appendChild(callLink);
+          }
+        }
+
+        const mapQuery = [
+          p.party_name, p.area, p.address, p.district
+        ].filter(Boolean).join(", ");
+
+        const mapUrl = /^https:\/\/(www\.)?(google\.com\/maps|maps\.app\.goo\.gl)/i
+          .test(p.map_url || "")
+          ? p.map_url
+          : "https://www.google.com/maps/search/?api=1&query=" +
+            encodeURIComponent(mapQuery);
+
+        actions.appendChild(makeLink(mapUrl, "📍 Google Maps"));
+        card.appendChild(actions);
+        results.appendChild(card);
+      });
+    }
+
+    function updateDistricts() {
+      const selected = district.value;
+      const names = [...new Set(
+        points.map(p => p.district).filter(Boolean)
+      )].sort((a, b) => a.localeCompare(b, "bn"));
+
+      district.replaceChildren();
+
+      const allOption = document.createElement("option");
+      allOption.value = "";
+      allOption.textContent = "সব জেলা";
+      district.appendChild(allOption);
+
+      names.forEach(name => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        district.appendChild(option);
+      });
+
+      district.value = names.includes(selected) ? selected : "";
+    }
+
+    async function loadPoints() {
+      if (!configured) {
+        status.textContent =
+          "Supabase URL ও Publishable Key বসালে ডেটাবেস চালু হবে।";
+        results.textContent = "এখনো ডেটাবেস সংযুক্ত হয়নি।";
+        return;
+      }
+
+      try {
+        const response = await db
+          .from("points")
+          .select("id,party_name,phone,district,area,address,map_url")
+          .eq("approved", true)
+          .order("party_name");
+
+        if (response.error) throw response.error;
+
+        points = response.data || [];
+        updateDistricts();
+        render();
+
+        status.textContent =
+          "মোট অনুমোদিত পার্টি: " + points.length;
+      } catch (error) {
+        console.error(error);
+        status.textContent =
+          "ডেটাবেস থেকে তথ্য আনা যায়নি। Supabase URL, key ও RLS policies পরীক্ষা করুন।";
+        results.textContent = "তথ্য লোড করা যায়নি।";
+      }
+    }
+
+    partyForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      if (!configured || !db) {
+        formStatus.textContent =
+          "আগে Supabase URL ও Publishable Key বসান।";
+        return;
+      }
+
+      const newPoint = {
+        party_name: document.getElementById("partyName").value.trim(),
+        phone: document.getElementById("phone").value.trim() || null,
+        district: document.getElementById("newDistrict").value.trim(),
+        area: document.getElementById("area").value.trim(),
+        address: document.getElementById("address").value.trim() || null,
+        map_url: document.getElementById("mapUrl").value.trim() || null,
+        approved: false
+      };
+
+      try {
+        formStatus.textContent = "তথ্য জমা হচ্ছে...";
+
+        const { error } = await db
+          .from("points")
+          .insert([newPoint]);
+
+        if (error) throw error;
+
+        partyForm.reset();
+        formStatus.textContent =
+          "তথ্য জমা হয়েছে। অ্যাডমিন অনুমোদনের পর দেখা যাবে।";
+      } catch (error) {
+        console.error(error);
+        formStatus.textContent =
+          "তথ্য জমা হয়নি। Supabase-এর INSERT policy পরীক্ষা করুন।";
+      }
+    });
+
+    search.addEventListener("input", render);
+    district.addEventListener("change", render);
+
+    if (configured && window.supabase) {
+      db = window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+      );
+      loadPoints();
+    } else {
+      loadPoints();
+    }
+  </script>
 </body>
 </html>
