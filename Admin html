@@ -91,8 +91,8 @@
 <script>
   // আপনার বর্তমান index.html-এ ব্যবহৃত একই Project URL
   // এবং Publishable key এখানে বসান।
-  const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
-  const SUPABASE_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY";
+  const SUPABASE_URL = "https://nwmlqjmczsleczhlzitz.supabase.co/rest/v1/";
+  const SUPABASE_KEY = "sb_publishable_oneQWm0wU0cak_z65rLSLA_eVMpK_Lg";
 
   const db = window.supabase.createClient(
     SUPABASE_URL,
