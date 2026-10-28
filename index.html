@@ -4,11 +4,84 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#087443">
   <title>ABL POINT 2</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f2f6f3;
+      color: #17231c;
+    }
+    header {
+      background: #087443;
+      color: white;
+      padding: 22px 16px;
+      text-align: center;
+    }
+    main {
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 16px;
+    }
+    input, select, button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 13px;
+      margin: 8px 0;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    input, select {
+      border: 1px solid #bbc9bf;
+      background: white;
+    }
+    button {
+      border: 0;
+      background: #087443;
+      color: white;
+      font-weight: bold;
+    }
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 14px;
+      box-shadow: 0 2px 8px #0001;
+    }
+    .note { color: #536158; font-size: 14px; }
+  </style>
 </head>
 <body>
-  <h1>ABL POINT 2</h1>
-  <p>বাংলাদেশের ডেলিভারি পয়েন্ট খুঁজুন।</p>
-  <p>অ্যাপ সেটআপ চলছে।</p>
+  <header>
+    <h1>ABL POINT 2</h1>
+    <p>বাংলাদেশের ডেলিভারি পয়েন্ট খুঁজুন</p>
+  </header>
+  <main>
+    <div class="card">
+      <h2>পয়েন্ট খুঁজুন</h2>
+      <input id="search" placeholder="পার্টি বা ডিলারের নাম লিখুন">
+      <select id="district">
+        <option value="">সব জেলা</option>
+        <option>ঢাকা</option>
+        <option>গাজীপুর</option>
+        <option>চট্টগ্রাম</option>
+        <option>নারায়ণগঞ্জ</option>
+        <option>নেত্রকোনা</option>
+      </select>
+      <p class="note">অনলাইন ডেটাবেস যুক্ত হলে অনুমোদিত পয়েন্ট এখানে দেখা যাবে।</p>
+      <div id="results">এখনো ডেটাবেস সংযুক্ত হয়নি।</div>
+    </div>
+    <div class="card">
+      <h2>নতুন পয়েন্ট যোগ করুন</h2>
+      <input id="party" placeholder="পার্টি / ডিলারের নাম">
+      <input id="phone" placeholder="মোবাইল নম্বর" inputmode="tel">
+      <input id="area" placeholder="এলাকা">
+      <input id="newdistrict" placeholder="জেলা">
+      <button onclick="alert('অনলাইন ডেটাবেস সংযুক্ত করার পর পয়েন্ট জমা দেওয়া যাবে।')">
+        পয়েন্ট জমা দিন
+      </button>
+    </div>
+  </main>
 </body>
 </html>
